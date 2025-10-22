@@ -1,0 +1,6 @@
+@CaseSaggezza_HostAddress = http://localhost:5181
+
+GET {{CaseSaggezza_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
