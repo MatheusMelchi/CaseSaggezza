@@ -25,6 +25,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<IdentificationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+builder.Services.AddDbContext<CaseSaggezzaDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
 builder.Services.AddIdentityCore<User>()
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<IdentificationDbContext>();
