@@ -1,9 +1,11 @@
-﻿using CaseSaggezza_Dal.Contexts;
+﻿using CaseSaggezza.Services.User;
+using CaseSaggezza_Dal.Contexts;
 using CaseSaggezza_Domain.Descriptions;
 using CaseSaggezza_Domain.Dto;
 using CaseSaggezza_Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -22,24 +24,21 @@ namespace CaseSaggezza.Controllers
         [HttpPost("Register")]
         public async Task<IActionResult> Register(RegisterRequestDto registerRequest)
         {
+            RegisterService registerService = new RegisterService(_userManager);
+
             using var transaction = await _identificationContext.Database.BeginTransactionAsync();
 
-            if (await _userManager.FindByNameAsync(registerRequest.Email) != null)
+            if (await registerService.CheckEmail(registerRequest.Email) != null)
                 return BadRequest("Email já registrado");
 
-            User user = new User
-            {
-                UserName = registerRequest.Email,
-                Name = registerRequest.Name,
-                Email = registerRequest.Email,
-            };
+            User user = registerService.CreateUserObject(registerRequest);
 
-            IdentityResult result = await _userManager.CreateAsync(user, registerRequest.Password);
+            IdentityResult result = await registerService.CreateUser(user, registerRequest);
 
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            IdentityResult addRoleUser = await _userManager.AddToRoleAsync(user, Roles.Normal);
+            IdentityResult addRoleUser = await registerService.CreateRoles(user, Roles.Normal);
 
             if (!addRoleUser.Succeeded)
                 return BadRequest(result.Errors);
@@ -52,43 +51,20 @@ namespace CaseSaggezza.Controllers
         [HttpPost("Login")]
         public async Task<IResult> Login(LoginRequestDto loginRequest)
         {
-            User? user = await _userManager.FindByEmailAsync(loginRequest.Email);
+            RegisterService registerService = new RegisterService(_userManager);
+            LoginService loginService = new LoginService(_userManager);
+            CreateJwtTokenService createJwtTokenService = new CreateJwtTokenService(_userManager, _configuration);
 
-            if (user == null || !await _userManager.CheckPasswordAsync(user, loginRequest.Password))
+            User? user = await registerService.CheckEmail(loginRequest.Email);
+
+            if (user == null || !await loginService.CheckPassword(user, loginRequest))
                 return Results.Unauthorized();
 
-            var roles = await _userManager.GetRolesAsync(user);
+            IList<string> roles = await loginService.UserRoles(user);
 
-            SymmetricSecurityKey? key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:SecretKey"]!));
-
-            SigningCredentials? credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            List<Claim> claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, user.Id) };
-
-            if (roles.Any())
-                claims.AddRange(roles.Select(x => new Claim(ClaimTypes.Role, x)));
-
-            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddMinutes(_configuration.GetValue<int>("Jwt:ExpirationInMinutes")),
-                SigningCredentials = credentials,
-                Issuer = _configuration["Jwt:Issuer"],
-                Audience = _configuration["Jwt:Audience"]
-            };
-
-            JsonWebTokenHandler tokenHandler = new JsonWebTokenHandler();
-
-            string token = tokenHandler.CreateToken(tokenDescriptor);
+            string token = await createJwtTokenService.CreateJwtToken(user, roles);
 
             return Results.Ok(new {token, user.UserName});
-        }
-
-        [HttpGet]
-        [Authorize]
-        public async Task<IActionResult> TesteAutenticacao()
-        {
-            return Ok("Autorizado");
         }
     }
 }
