@@ -4,6 +4,7 @@ using CaseSaggezza_Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Writers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,11 +16,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddAuthorization();
-builder.Services.AddAuthentication().AddCookie(IdentityConstants.ApplicationScheme);
+builder.Services.AddAuthentication().AddCookie(IdentityConstants.ApplicationScheme).AddBearerToken(IdentityConstants.BearerScheme);
 
 builder.Services.AddIdentityCore<User>()
-    .AddEntityFrameworkStores<IdentificationDbContext>()
-    .AddApiEndpoints();
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<IdentificationDbContext>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -42,7 +43,5 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.MapIdentityApi<User>();
 
 app.Run();
