@@ -2,6 +2,7 @@
 using CaseSaggezza_Domain.Descriptions;
 using CaseSaggezza_Domain.Dto;
 using CaseSaggezza_Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -81,6 +82,13 @@ namespace CaseSaggezza.Controllers
             string token = tokenHandler.CreateToken(tokenDescriptor);
 
             return Results.Ok(new {token, user.UserName});
+        }
+
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> TesteAutenticacao()
+        {
+            return Ok("Autorizado");
         }
     }
 }
